@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Multilingual Speech to Text</title>
+    <style>
+        body {
+            font-family: Arial;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            color: white;
+        }
+
+        #recordBtn {
+            background: #e74c3c;
+        }
+
+        #recordBtn.recording {
+            background: #27ae60;
+            animation: pulse 1s infinite;
+        }
+
+        #stopBtn {
+            background: #3498db;
+        }
+
+        #clearBtn {
+            background: #95a5a6;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        select {
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 2px solid #ddd;
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        #bestOutput {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            min-height: 60px;
+            font-size: 18px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            border-left: 4px solid #27ae60;
+        }
+
+        #allResults {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f4f4f4;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .lang-result {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .lang-label {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #3498db;
+            color: white;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+
+        .lang-error {
+            color: #e74c3c;
+        }
+
+        #status {
+            margin-top: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.6
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎤 Multilingual Speech to Text</h1>
+    <p>Supports English, Hindi, Gujarati, and <b>code-mixed</b> speech (Hinglish, Gujarati-English).</p>
+
+    <label><b>Language Mode:</b></label>
+    <select id="langSelect">
+        <option value="en-US">🇺🇸 English</option>
+        <option value="hi-IN">🇮🇳 Hindi (हिन्दी)</option>
+        <option value="gu-IN">🇮🇳 Gujarati (ગુજરાતી)</option>
+        <option value="hinglish" selected>🔀 Hinglish (Hindi + English mix)</option>
+        <option value="guj-eng">🔀 Gujarati + English mix</option>
+        <option value="auto">🌐 Auto-detect (try all)</option>
+    </select>
+
+    <div>
+        <button id="recordBtn">⏺ Record</button>
+        <button id="stopBtn" disabled>⏹ Stop & Transcribe</button>
+        <button id="clearBtn">🗑 Clear</button>
+    </div>
+
+    <div id="status"></div>
+
+    <h3>✅ Best Result:</h3>
+    <div id="bestOutput">Press Record and start speaking...</div>
+
+    <h3>📋 All Language Results:</h3>
+    <div id="allResults">Will show results from each language tried...</div>
+
+    <script>
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const bestOutput = document.getElementById('bestOutput');
+        const allResults = document.getElementById('allResults');
+        const statusEl = document.getElementById('status');
+        const langSelect = document.getElementById('langSelect');
+
+        let audioContext, mediaStream, recorder;
+        let audioChunks = [];
+
+        const langNames = {
+            'en-US': '🇺🇸 English (US)',
+            'en-IN': '🇮🇳 English (India)',
+            'hi-IN': '🇮🇳 Hindi',
+            'gu-IN': '🇮🇳 Gujarati'
+        };
+
+        function encodeWAV(samples, sampleRate, numChannels) {
+            const buffer = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buffer);
+            function writeString(offset, str) {
+                for (let i = 0; i < str.length; i++)
+                    view.setUint8(offset + i, str.charCodeAt(i));
+            }
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numChannels * 2, true);
+            view.setUint16(32, numChannels * 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, samples.length * 2, true);
+            for (let i = 0; i < samples.length; i++) {
+                let s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        recordBtn.addEventListener('click', async () => {
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+                audioChunks = [];
+
+                processor.onaudioprocess = (e) => {
+                    audioChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+                };
+
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                recorder = { source, processor };
+
+                recordBtn.textContent = '🔴 Recording...';
+                recordBtn.classList.add('recording');
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusEl.textContent = '🎙️ Recording... speak now!';
+                bestOutput.textContent = '';
+                allResults.textContent = '';
+            } catch (err) {
+                alert('Mic error: ' + err.message);
+            }
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            if (recorder) {
+                recorder.processor.disconnect();
+                recorder.source.disconnect();
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(t => t.stop());
+            }
+
+            const sampleRate = audioContext.sampleRate;
+            audioContext.close();
+
+            recordBtn.textContent = '⏺ Record';
+            recordBtn.classList.remove('recording');
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+
+            // Merge chunks
+            let totalLength = 0;
+            audioChunks.forEach(c => totalLength += c.length);
+            const merged = new Float32Array(totalLength);
+            let offset = 0;
+            audioChunks.forEach(chunk => { merged.set(chunk, offset); offset += chunk.length; });
+
+            // Downsample to 16000Hz
+            const targetRate = 16000;
+            const ratio = sampleRate / targetRate;
+            const downsampled = new Float32Array(Math.floor(merged.length / ratio));
+            for (let i = 0; i < downsampled.length; i++) {
+                downsampled[i] = merged[Math.floor(i * ratio)];
+            }
+
+            const wavBlob = encodeWAV(downsampled, targetRate, 1);
+
+            const langMode = langSelect.value;
+            statusEl.textContent = '⏳ Transcribing with mode: ' + langSelect.options[langSelect.selectedIndex].text + '...';
+
+            const formData = new FormData();
+            formData.append('audio', wavBlob, 'recording.wav');
+            formData.append('lang_mode', langMode);
+
+            try {
+                const resp = await fetch('/transcribe', { method: 'POST', body: formData });
+                const data = await resp.json();
+
+                if (data.error) {
+                    bestOutput.textContent = '❌ ' + data.error;
+                    statusEl.textContent = '';
+                    return;
+                }
+
+                // Show best result
+                bestOutput.textContent = data.best;
+                if (data.best_lang) {
+                    statusEl.textContent = '✅ Best match: ' + (langNames[data.best_lang] || data.best_lang);
+                } else {
+                    statusEl.textContent = '✅ Done!';
+                }
+
+                // Show all language results
+                if (data.results && data.results.length > 1) {
+                    let html = '';
+                    data.results.forEach(r => {
+                        const name = langNames[r.lang] || r.lang;
+                        if (r.transcript) {
+                            html += `<div class="lang-result"><span class="lang-label">${name}</span>${r.transcript}</div>`;
+                        } else {
+                            html += `<div class="lang-result"><span class="lang-label">${name}</span><span class="lang-error">✗ ${r.error}</span></div>`;
+                        }
+                    });
+                    allResults.innerHTML = html;
+                } else {
+                    allResults.textContent = '(single language mode — no alternatives)';
+                }
+
+            } catch (err) {
+                bestOutput.textContent = '❌ Fetch error: ' + err.message;
+                statusEl.textContent = '';
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            bestOutput.textContent = 'Press Record and start speaking...';
+            allResults.textContent = 'Will show results from each language tried...';
+            statusEl.textContent = '';
+        });
+    </script>
+</body>
+
+</html>
