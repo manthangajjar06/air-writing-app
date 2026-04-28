@@ -137,17 +137,25 @@ The system runs two pipelines simultaneously inside a single loop:
 
 ## 📂 Project Structure
 
-```bash
-├── app.py  
-├── speech-to-text/  
-│   └── app.py  
-├── models/  
-│   ├── air_writing_emnist.keras  
-│   └── emnist_labels.npy  
-├── static/  
-├── templates/  
-├── requirements.txt  
-└── README.md
+```bashAir-Writing-Gesture-Mouse/
+Air-Writing-Gesture-Mouse/
+│
+├── app.py                         # Main application (Flask + CV + ML + Mouse control)
+│
+├── models/                        # ML models and labels
+│   ├── air_writing_emnist.keras   # Trained CNN model
+│   └── emnist_labels.npy          # Label mappings
+│
+├── speech-to-text/                # Speech recognition module
+│   ├── app.py
+│   └── templates/
+│       └── index.html
+│
+├── templates/                     # Main Flask UI templates
+│   └── index.html
+│
+├── requirements.txt               # Python dependencies
+└── README.md                      # Project documentation
 ```
 
 ---
