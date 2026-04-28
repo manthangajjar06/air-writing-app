@@ -2,6 +2,8 @@ import streamlit as st
 import cv2
 import numpy as np
 import mediapipe as mp
+from mediapipe.python.solutions import hands as _mp_hands
+from mediapipe.python.solutions import drawing_utils as _mp_draw
 import tensorflow as tf
 import math
 import os
@@ -74,10 +76,10 @@ def load_model():
 
 model, label_map = load_model()
 
-# MediaPipe — initialise once per session, not cached (cache_resource can't
-# serialise native MediaPipe objects and raises AttributeError on some builds)
-mp_hands_mod = mp.solutions.hands
-mp_draw       = mp.solutions.drawing_utils
+# MediaPipe — use direct module imports (mp.solutions shortcut is unreliable
+# across MediaPipe versions and raises AttributeError on some cloud builds)
+mp_hands_mod = _mp_hands
+mp_draw       = _mp_draw
 
 if "hands_detector" not in st.session_state:
     st.session_state.hands_detector = mp_hands_mod.Hands(
