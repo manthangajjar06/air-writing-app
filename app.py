@@ -2,8 +2,6 @@ import streamlit as st
 import cv2
 import numpy as np
 import mediapipe as mp
-from mediapipe.python.solutions import hands as _mp_hands
-from mediapipe.python.solutions import drawing_utils as _mp_draw
 import tensorflow as tf
 import math
 import os
@@ -43,10 +41,10 @@ st.title("✍️ Air Writing & 🎤 Speech Recognition")
 # ─────────────────────────────────────────
 #  CONSTANTS
 # ─────────────────────────────────────────
-MODEL_PATH    = "air_writing_emnist.keras"
-PINCH_THRESH  = 0.12
+MODEL_PATH     = "air_writing_emnist.keras"
+PINCH_THRESH   = 0.12
 LINE_THICKNESS = 12
-MIN_PIXELS    = 50
+MIN_PIXELS     = 50
 
 EMNIST_BYCLASS = [
     '0','1','2','3','4','5','6','7','8','9',
@@ -62,6 +60,12 @@ EMNIST_BALANCED = [
 ]
 
 # ─────────────────────────────────────────
+#  MEDIAPIPE SETUP  (pinned to 0.10.14 — last version with solutions API)
+# ─────────────────────────────────────────
+mp_hands_mod = mp.solutions.hands
+mp_draw       = mp.solutions.drawing_utils
+
+# ─────────────────────────────────────────
 #  CACHED RESOURCES
 # ─────────────────────────────────────────
 @st.cache_resource
@@ -75,11 +79,6 @@ def load_model():
     return model, label_map
 
 model, label_map = load_model()
-
-# MediaPipe — use direct module imports (mp.solutions shortcut is unreliable
-# across MediaPipe versions and raises AttributeError on some cloud builds)
-mp_hands_mod = _mp_hands
-mp_draw       = _mp_draw
 
 if "hands_detector" not in st.session_state:
     st.session_state.hands_detector = mp_hands_mod.Hands(
@@ -192,7 +191,6 @@ with tab1:
                     pinching = True
                     cv2.circle(frame, cursor, 10, (0, 255, 0), -1)
                     cv2.circle(frame, cursor, 15, (255, 255, 255), 2)
-                    # Draw line from previous point to current
                     if st.session_state.prev_pt is not None:
                         cv2.line(st.session_state.canvas,
                                  st.session_state.prev_pt, cursor,
@@ -207,7 +205,6 @@ with tab1:
                     cv2.putText(frame, "OPEN HAND — not drawing", (10, 35),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
 
-                # Show pinch distance as a guide
                 cv2.putText(frame, f"Pinch: {norm_p:.2f}  (< {PINCH_THRESH} to draw)",
                             (10, h - 15), cv2.FONT_HERSHEY_PLAIN, 1.1,
                             (0, 255, 0) if pinching else (180, 180, 180), 1)
@@ -232,7 +229,6 @@ with tab1:
     with col_canvas:
         st.subheader("Drawing Canvas")
 
-        # Show canvas
         canvas_disp = st.session_state.canvas if st.session_state.canvas is not None \
                       else np.zeros((240, 320), dtype=np.uint8)
         st.image(canvas_disp, caption="What the model sees",
@@ -255,7 +251,6 @@ with tab1:
                         conf  = float(np.max(preds)) * 100
                         st.success(f"Predicted: **`{char}`** ({conf:.1f}% confidence)")
                         st.session_state.predicted_text += char
-                        # Clear canvas after prediction
                         st.session_state.canvas  = np.zeros_like(st.session_state.canvas)
                         st.session_state.prev_pt = None
 
