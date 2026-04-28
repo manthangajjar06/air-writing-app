@@ -72,19 +72,20 @@ def load_model():
                 else {i: EMNIST_BALANCED[i] for i in range(47)}
     return model, label_map
 
-@st.cache_resource
-def load_hands():
-    mh = mp.solutions.hands
-    detector = mh.Hands(
+model, label_map = load_model()
+
+# MediaPipe — initialise once per session, not cached (cache_resource can't
+# serialise native MediaPipe objects and raises AttributeError on some builds)
+mp_hands_mod = mp.solutions.hands
+mp_draw       = mp.solutions.drawing_utils
+
+if "hands_detector" not in st.session_state:
+    st.session_state.hands_detector = mp_hands_mod.Hands(
         max_num_hands=1,
         min_detection_confidence=0.7,
-        min_tracking_confidence=0.7
+        min_tracking_confidence=0.7,
     )
-    return mh, detector
-
-model, label_map = load_model()
-mp_hands_mod, hands_detector = load_hands()
-mp_draw = mp.solutions.drawing_utils
+hands_detector = st.session_state.hands_detector
 
 # ─────────────────────────────────────────
 #  SESSION STATE
