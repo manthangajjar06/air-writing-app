@@ -2,10 +2,13 @@ import streamlit as st
 import cv2
 import numpy as np
 import mediapipe as mp
+from mediapipe.tasks import python as mp_tasks
+from mediapipe.tasks.python import vision as mp_vision
 import tensorflow as tf
 import math
 import os
 import io
+import urllib.request
 import speech_recognition as sr
 
 # ─────────────────────────────────────────
@@ -17,9 +20,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# ─────────────────────────────────────────
-#  ⚠️  LIMITATIONS BANNER  (always visible)
-# ─────────────────────────────────────────
 st.error("""
 ### ⚠️ Features Disabled on Cloud — Read Before Using
 
@@ -41,10 +41,25 @@ st.title("✍️ Air Writing & 🎤 Speech Recognition")
 # ─────────────────────────────────────────
 #  CONSTANTS
 # ─────────────────────────────────────────
-MODEL_PATH     = "air_writing_emnist.keras"
-PINCH_THRESH   = 0.12
-LINE_THICKNESS = 12
-MIN_PIXELS     = 50
+MODEL_PATH      = "air_writing_emnist.keras"
+HAND_MODEL_PATH = "hand_landmarker.task"
+HAND_MODEL_URL  = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+)
+PINCH_THRESH    = 0.12
+LINE_THICKNESS  = 12
+MIN_PIXELS      = 50
+
+# Hand skeleton connections (landmark index pairs)
+HAND_CONNECTIONS = [
+    (0,1),(1,2),(2,3),(3,4),
+    (0,5),(5,6),(6,7),(7,8),
+    (0,9),(9,10),(10,11),(11,12),
+    (0,13),(13,14),(14,15),(15,16),
+    (0,17),(17,18),(18,19),(19,20),
+    (5,9),(9,13),(13,17),
+]
 
 EMNIST_BYCLASS = [
     '0','1','2','3','4','5','6','7','8','9',
@@ -60,40 +75,42 @@ EMNIST_BALANCED = [
 ]
 
 # ─────────────────────────────────────────
-#  MEDIAPIPE SETUP  (pinned to 0.10.14 — last version with solutions API)
-# ─────────────────────────────────────────
-mp_hands_mod = mp.solutions.hands
-mp_draw       = mp.solutions.drawing_utils
-
-# ─────────────────────────────────────────
 #  CACHED RESOURCES
 # ─────────────────────────────────────────
 @st.cache_resource
-def load_model():
+def load_emnist_model():
     if not os.path.exists(MODEL_PATH):
         return None, {}
-    model = tf.keras.models.load_model(MODEL_PATH)
-    n = model.output_shape[-1]
-    label_map = {i: EMNIST_BYCLASS[i] for i in range(62)} if n == 62 \
-                else {i: EMNIST_BALANCED[i] for i in range(47)}
-    return model, label_map
+    mdl  = tf.keras.models.load_model(MODEL_PATH)
+    n    = mdl.output_shape[-1]
+    lmap = {i: EMNIST_BYCLASS[i] for i in range(62)} if n == 62 \
+           else {i: EMNIST_BALANCED[i] for i in range(47)}
+    return mdl, lmap
 
-model, label_map = load_model()
-
-if "hands_detector" not in st.session_state:
-    st.session_state.hands_detector = mp_hands_mod.Hands(
-        max_num_hands=1,
-        min_detection_confidence=0.7,
+@st.cache_resource
+def load_hand_detector():
+    """Download the hand-landmarker task model and create a Tasks-API detector."""
+    if not os.path.exists(HAND_MODEL_PATH):
+        urllib.request.urlretrieve(HAND_MODEL_URL, HAND_MODEL_PATH)
+    base_options = mp_tasks.BaseOptions(model_asset_path=HAND_MODEL_PATH)
+    options = mp_vision.HandLandmarkerOptions(
+        base_options=base_options,
+        num_hands=1,
+        min_hand_detection_confidence=0.7,
+        min_hand_presence_confidence=0.7,
         min_tracking_confidence=0.7,
     )
-hands_detector = st.session_state.hands_detector
+    return mp_vision.HandLandmarker.create_from_options(options)
+
+model, label_map = load_emnist_model()
+hand_detector    = load_hand_detector()
 
 # ─────────────────────────────────────────
 #  SESSION STATE
 # ─────────────────────────────────────────
-if "canvas"         not in st.session_state: st.session_state.canvas         = None
-if "predicted_text" not in st.session_state: st.session_state.predicted_text = ""
-if "prev_pt"        not in st.session_state: st.session_state.prev_pt        = None
+for key, default in [("canvas", None), ("predicted_text", ""), ("prev_pt", None)]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 # ─────────────────────────────────────────
 #  HELPER FUNCTIONS
@@ -104,15 +121,24 @@ def pinch_dist(landmarks):
     s = math.hypot(wr.x - mid.x, wr.y - mid.y)
     return d / (s + 1e-6)
 
+def draw_hand(frame, landmarks, h, w):
+    """Draw hand skeleton using OpenCV (no mp.solutions dependency)."""
+    pts = [(int(lm.x * w), int(lm.y * h)) for lm in landmarks]
+    for a, b in HAND_CONNECTIONS:
+        cv2.line(frame, pts[a], pts[b], (80, 200, 120), 2, cv2.LINE_AA)
+    for pt in pts:
+        cv2.circle(frame, pt, 5, (255, 255, 255), -1)
+        cv2.circle(frame, pt, 5, (0, 180, 90), 1)
+
 def prepare_for_emnist(canvas_img):
     ys, xs = np.nonzero(canvas_img)
     if len(xs) == 0:
         return None
     crop = canvas_img[ys.min():ys.max()+1, xs.min():xs.max()+1]
-    h, w = crop.shape
-    s = max(h, w)
+    h, w  = crop.shape
+    s     = max(h, w)
     ph, pw = (s - h) // 2, (s - w) // 2
-    square = np.pad(crop, ((ph, s-h-ph), (pw, s-w-pw)), 'constant')
+    square  = np.pad(crop, ((ph, s-h-ph), (pw, s-w-pw)), 'constant')
     resized = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
     resized = np.rot90(resized, 3)
     resized = np.fliplr(resized)
@@ -127,9 +153,9 @@ def transcribe_audio(audio_bytes, lang_mode):
         "guj-eng":  ["gu-IN", "en-IN", "en-US"],
         "auto":     ["en-US", "hi-IN", "gu-IN", "en-IN"],
     }
-    languages = lang_groups.get(lang_mode, ["en-US"])
+    languages  = lang_groups.get(lang_mode, ["en-US"])
     recognizer = sr.Recognizer()
-    wav_io = io.BytesIO(audio_bytes)
+    wav_io     = io.BytesIO(audio_bytes)
     with sr.AudioFile(wav_io) as source:
         audio_data = recognizer.record(source)
     results = []
@@ -163,29 +189,30 @@ with tab1:
         camera_image = st.camera_input("Point your camera at your hand and click Take Photo")
 
         if camera_image:
-            nparr = np.frombuffer(camera_image.getvalue(), np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            frame = cv2.flip(frame, 1)
-            h, w = frame.shape[:2]
+            nparr  = np.frombuffer(camera_image.getvalue(), np.uint8)
+            frame  = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            frame  = cv2.flip(frame, 1)
+            h, w   = frame.shape[:2]
 
-            # Init canvas on first frame or size change
             if st.session_state.canvas is None or st.session_state.canvas.shape != (h, w):
                 st.session_state.canvas = np.zeros((h, w), dtype=np.uint8)
 
-            rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            result = hands_detector.process(rgb)
+            # ── MediaPipe Tasks API detection ──
+            rgb      = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            result   = hand_detector.detect(mp_image)
 
             pinching = False
 
-            if result.multi_hand_landmarks:
-                hlm = result.multi_hand_landmarks[0]
-                mp_draw.draw_landmarks(frame, hlm, mp_hands_mod.HAND_CONNECTIONS)
+            if result.hand_landmarks:
+                lm = result.hand_landmarks[0]   # list of NormalizedLandmark
 
-                lm      = hlm.landmark
-                norm_p  = pinch_dist(lm)
-                ix_x    = int(lm[8].x * w)
-                ix_y    = int(lm[8].y * h)
-                cursor  = (ix_x, ix_y)
+                draw_hand(frame, lm, h, w)
+
+                norm_p = pinch_dist(lm)
+                ix_x   = int(lm[8].x * w)
+                ix_y   = int(lm[8].y * h)
+                cursor = (ix_x, ix_y)
 
                 if norm_p < PINCH_THRESH:
                     pinching = True
@@ -213,7 +240,7 @@ with tab1:
                 cv2.putText(frame, "No hand detected", (10, 35),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-            # Overlay canvas ink on frame (spring-green tint)
+            # Overlay canvas ink (spring-green tint)
             mask = st.session_state.canvas > 0
             if np.any(mask):
                 ink = np.array([0, 255, 127], dtype=np.uint8)
@@ -228,7 +255,6 @@ with tab1:
 
     with col_canvas:
         st.subheader("Drawing Canvas")
-
         canvas_disp = st.session_state.canvas if st.session_state.canvas is not None \
                       else np.zeros((240, 320), dtype=np.uint8)
         st.image(canvas_disp, caption="What the model sees",
@@ -238,7 +264,7 @@ with tab1:
         with c1:
             if st.button("🔍 Predict Character", use_container_width=True):
                 if model is None:
-                    st.error("Model file not found.")
+                    st.error("EMNIST model file not found.")
                 elif st.session_state.canvas is None or \
                         np.count_nonzero(st.session_state.canvas) < MIN_PIXELS:
                     st.warning("Draw something first — canvas looks empty.")
@@ -263,7 +289,6 @@ with tab1:
         st.markdown("---")
         st.markdown("### 📝 Accumulated Text")
         st.markdown(f"## `{st.session_state.predicted_text or '—'}`")
-
         if st.button("🧹 Clear Text"):
             st.session_state.predicted_text = ""
 
@@ -299,11 +324,9 @@ with tab2:
                     try:
                         results    = transcribe_audio(audio_bytes, lang_mode)
                         successful = [r for r in results if r["transcript"]]
-
                         if successful:
                             best = max(successful, key=lambda r: len(r["transcript"]))
                             st.success(f"**Best result ({best['lang']}):**  {best['transcript']}")
-
                             if len(results) > 1:
                                 with st.expander("All language results"):
                                     for r in results:
