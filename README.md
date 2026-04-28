@@ -1,173 +1,285 @@
-# Air Writing & Speech Recognition
+# 🚀 AI-Powered Air Writing, Virtual Mouse & Speech Recognition
 
-A real-time computer vision web app that recognizes hand-drawn characters in the air using a webcam, powered by a trained EMNIST CNN model, MediaPipe hand tracking, and multi-language speech-to-text via Google Speech Recognition.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Cloud Deployment](#cloud-deployment)
-- [Known Limitations (Cloud)](#known-limitations-cloud)
-- [How It Works](#how-it-works)
-- [Model Details](#model-details)
+<p align="center"> <b>Touchless Human-Computer Interaction using Computer Vision, ML & NLP</b> </p> <p align="center"> <img src="https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python"/> <img src="https://img.shields.io/badge/OpenCV-Computer%20Vision-green?style=for-the-badge"/> <img src="https://img.shields.io/badge/MediaPipe-Hand%20Tracking-orange?style=for-the-badge"/> <img src="https://img.shields.io/badge/TensorFlow-Deep%20Learning-ff6f00?style=for-the-badge"/> <img src="https://img.shields.io/badge/Flask-Web%20App-black?style=for-the-badge"/> </p>
 
 ---
 
-## Overview
+## 📌 Overview
 
-This project started as a local desktop Flask application with real-time MJPEG video streaming, pinch-gesture drawing, mouse cursor control via `pyautogui`, and a speech recognition module. It has been adapted into a Streamlit web app for cloud deployment, with the desktop-only features clearly documented and disabled.
+This project presents a **next-generation Human-Computer Interaction (HCI)** system that eliminates the need for physical input devices.
 
-The core idea: use your index finger and thumb as a pen. Pinch to draw a character in the air in front of your webcam. The model predicts the character. Repeat to build words.
+Using a webcam and microphone, users can:
 
----
+* ✍️ Write in the air and get AI predictions
+* 🖱 Control the system cursor via gestures
+* 🎤 Convert speech into text in real-time
 
-## Features
-
-**Air Writing**
-- Webcam-based hand detection using MediaPipe
-- Pinch gesture (index + thumb) to draw on a virtual canvas
-- Character prediction using a trained EMNIST CNN model
-- Accumulated text output — predict letter by letter to form words
-
-**Speech to Text**
-- Upload a `.wav` audio file for transcription
-- Powered by Google Speech Recognition
-- Supports 6 language modes: English, Hindi, Gujarati, Hinglish, Gujarati-English mix, and auto-detect
+The system integrates **Computer Vision + Deep Learning + OS Automation + NLP** into a single interactive pipeline.
 
 ---
 
-## Tech Stack
+## 🎯 Key Highlights
 
-| Layer | Technology |
-|---|---|
-| UI Framework | Streamlit |
-| Hand Tracking | MediaPipe Hands |
-| Computer Vision | OpenCV (headless) |
-| Deep Learning | TensorFlow / Keras |
-| Speech Recognition | SpeechRecognition (Google API) |
-| Numerical Computing | NumPy |
+* Real-time hand tracking at **30+ FPS**
+* CNN-based handwritten character recognition (EMNIST)
+* Gesture-driven OS-level mouse control
+* Seamless speech-to-text integration
+* Fully touchless interaction system
 
 ---
 
-## Project Structure
+## ⚙️ System Architecture
 
-```
-├── app.py                      # Main Streamlit application
-├── requirements.txt            # Python dependencies
-├── air_writing_emnist.keras    # Trained EMNIST character recognition model
-├── emnist_labels.npy           # Label index-to-character mapping
-├── .gitignore
+### 🔁 Vision Pipeline
+
+* Webcam input via OpenCV
+* Hand landmark detection using MediaPipe (21 keypoints)
+* Gesture classification using geometric heuristics
+* Action mapping:
+
+  * Drawing → Canvas update
+  * Prediction → CNN inference
+  * Mouse Mode → OS control
+
+---
+
+### 🔊 Audio Pipeline
+
+* Microphone input capture
+* Speech segmentation (pause detection)
+* Google Speech API processing
+* Real-time UI rendering
+
+---
+
+## 🔄 System Workflow
+
+The system runs two pipelines simultaneously inside a single loop:
+
+### 1. Vision-Control Loop (Real-Time)
+
+1. Frame is captured using OpenCV
+2. MediaPipe extracts hand landmarks (21 points)
+3. Distances between fingers are calculated
+4. Gesture state is determined
+5. Based on state:
+
+   * **Draw Mode** → Points added to canvas
+   * **Predict Mode** → Canvas processed by ML model
+   * **Mouse Mode** → Cursor control using PyAutoGUI
+
+---
+
+### 2. Audio Processing Flow
+
+1. Microphone captures audio
+2. SpeechRecognition detects pause
+3. Audio sent to Google API
+4. Text returned and displayed on UI
+
+---
+
+## 🧠 Core Features
+
+### ✍️ Air Writing & Recognition
+
+* Draw characters using pinch gesture
+* Automatic canvas tracking with NumPy
+* AI prediction triggered via gesture hold
+
+---
+
+### 🖱 Virtual Mouse
+
+* Cursor movement via hand tracking
+* Gesture-based clicks:
+
+  * Single pinch → Left click
+  * Double pinch → Right click
+
+---
+
+### 🎤 Speech-to-Text
+
+* Continuous voice capture
+* Real-time transcription
+* Integrated with web interface
+
+---
+
+## ✋ Gesture Control Map
+
+| Gesture               | Action            |
+| --------------------- | ----------------- |
+| Pinch (Index + Thumb) | Draw              |
+| Index Finger Hold     | Predict Character |
+| Two Fingers Up        | Clear Canvas      |
+| Thumb Up              | Enable Mouse Mode |
+| 1 Pinch               | Left Click        |
+| 2 Pinches             | Right Click       |
+
+---
+
+## 🛠 Tech Stack
+
+| Layer           | Technology         |
+| --------------- | ------------------ |
+| Backend         | Flask              |
+| Computer Vision | OpenCV             |
+| Hand Tracking   | MediaPipe          |
+| ML Model        | TensorFlow / Keras |
+| Automation      | PyAutoGUI          |
+| Speech          | SpeechRecognition  |
+| Data Processing | NumPy              |
+| Frontend        | HTML / CSS / JS    |
+
+---
+
+## 📂 Project Structure
+
+```bash
+├── app.py  
+├── speech-to-text/  
+│   └── app.py  
+├── models/  
+│   ├── air_writing_emnist.keras  
+│   └── emnist_labels.npy  
+├── static/  
+├── templates/  
+├── requirements.txt  
 └── README.md
 ```
 
 ---
 
-## Getting Started
+## 🔍 Code Explanation
 
-### Prerequisites
+### 🧩 Main Application (`app.py`)
 
-- Python 3.9 or higher
-- A webcam
-- pip
+* Acts as the **central controller**
+* Handles:
 
-### Installation
+  * Webcam streaming
+  * Hand tracking
+  * Gesture detection
+  * ML prediction
+  * Mouse automation
+
+---
+
+### ✋ Gesture Detection Logic
+
+* Uses landmark indices:
+
+  * Thumb tip → 4
+  * Index tip → 8
+* Calculates Euclidean distance
+* Applies threshold logic to detect gestures
+
+---
+
+### 🧠 ML Prediction Flow
+
+1. Capture drawn canvas
+2. Convert to grayscale
+3. Resize to 28×28
+4. Normalize pixel values
+5. Pass into CNN (EMNIST model)
+6. Return predicted character
+
+---
+
+### 🖱 Mouse Control Logic
+
+* Map webcam coordinates → screen resolution
+* Apply smoothing to reduce jitter
+* Use PyAutoGUI:
+
+  * `moveTo()`
+  * `click()`
+
+---
+
+### 🎤 Speech Module (`speech-to-text/`)
+
+* Captures microphone input
+* Sends audio to Google Speech API
+* Returns text asynchronously
+* Injects output into frontend
+
+---
+
+## 🚀 Installation & Setup
+
+### 🔧 Prerequisites
+
+* Python 3.8+
+* Webcam + Microphone
+* Local machine with GUI
+
+---
+
+### ⚡ Setup
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/air-writing-app.git
-cd air-writing-app
+# Clone repository  
+git clone https://github.com/YOUR_USERNAME/Air-Writing-Gesture-Mouse.git  
+cd Air-Writing-Gesture-Mouse  
 
-# 2. Create and activate a virtual environment
-python -m venv venv
+# Create virtual environment  
+python -m venv venv  
 
-# Windows
-venv\Scripts\activate
+# Activate environment  
+venv\Scripts\activate      # Windows  
+source venv/bin/activate   # Mac/Linux  
 
-# macOS / Linux
-source venv/bin/activate
+# Install dependencies  
+pip install -r requirements.txt  
 
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Run the app
-streamlit run app.py
+# Run application  
+python app.py
 ```
 
-The app will open in your browser at `http://localhost:8501`.
+Access locally:
 
-> **Local tip:** If you're running locally and want full OpenCV support, replace `opencv-python-headless` with `opencv-python` in `requirements.txt`.
-
----
-
-## Cloud Deployment
-
-This app is configured for one-click deployment on [Streamlit Community Cloud](https://share.streamlit.io).
-
-1. Push this repository to GitHub (all 6 files, nothing else)
-2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub
-3. Click **New app** and select this repository
-4. Set **Main file path** to `app.py`
-5. Click **Deploy**
-
-Streamlit will install dependencies from `requirements.txt` automatically. First build takes 2–3 minutes.
+[http://localhost:5000](http://localhost:5000)
 
 ---
 
-## Known Limitations (Cloud)
+## ⚠️ Deployment Limitation
 
-The original desktop version had several features that are fundamentally incompatible with any cloud server environment. These are disabled in this version and will not be re-added.
+This project **cannot be deployed on cloud platforms**.
 
-| Feature | Status | Reason |
-|---|---|---|
-| 🖱️ Cursor / mouse control | ❌ Removed | `pyautogui` controls a physical machine's mouse and screen. Cloud servers have neither. |
-| 🎥 Live continuous video stream | ❌ Not possible | The original Flask app used MJPEG streaming over a persistent HTTP connection. Streamlit's execution model re-runs the script per interaction — there is no persistent frame loop. |
-| ✍️ Real-time smooth stroke rendering | ⚠️ Degraded | Catmull-Rom spline smoothing and EMA filtering operated on 30fps continuous frames. Per-snapshot capture means strokes are drawn point-to-point between captures, not in real time. |
-| 🔁 Auto-predict on pinch release | ⚠️ Changed | The original app detected the pinch-open transition across frames. Here, prediction is triggered manually via button click. |
-| 👋 Two-hand click gestures | ❌ Removed | Depended entirely on `pyautogui.click()`. |
+### Reason:
 
-**If you need the full real-time experience**, run the app locally. All gesture tracking, smooth drawing, and cursor control work as intended on a local machine.
+* Uses **PyAutoGUI** for system-level interaction
+* Requires:
 
----
+  * Physical display
+  * OS-level access
+* Cloud environments are **headless (no GUI)**
 
-## How It Works
-
-**Drawing Pipeline**
-
-1. `st.camera_input()` captures a JPEG snapshot from the browser webcam
-2. The frame is decoded with OpenCV and flipped horizontally (mirror view)
-3. MediaPipe Hands detects landmarks for up to 1 hand
-4. Normalized pinch distance between index tip (landmark 8) and thumb tip (landmark 4) is computed relative to hand size
-5. If pinch distance < threshold (0.12), the index fingertip position is recorded and a stroke is drawn onto an in-memory canvas (NumPy array)
-6. Canvas state is persisted across frames using `st.session_state`
-
-**Prediction Pipeline**
-
-1. The canvas is cropped to the bounding box of the drawn pixels
-2. Padded to a square, resized to 28×28
-3. Rotated 90° and mirrored to match EMNIST's orientation convention
-4. Normalised to [0, 1] and passed to the Keras model
-5. `argmax` of the softmax output is mapped to a character via `label_map`
-
-**Speech Pipeline**
-
-1. User uploads a `.wav` file
-2. `speech_recognition.AudioFile` reads it into an `AudioData` object
-3. `recognize_google()` is called for each language in the selected mode
-4. The longest successful transcript is returned as the best result
+✔ Works locally
+❌ Not compatible with standard hosting
 
 ---
 
-## Model Details
+## 🧩 Challenges Solved
 
-- **Architecture:** Convolutional Neural Network trained on EMNIST
-- **Input:** 28×28 grayscale image, single channel
-- **Output:** 47 classes (EMNIST Balanced) or 62 classes (EMNIST ByClass), auto-detected at load time
-- **File:** `air_writing_emnist.keras` (~12 MB)
-- **Label mapping:** `emnist_labels.npy` — index-to-character dictionary loaded at startup
+* Real-time gesture detection without latency
+* Mapping 3D landmarks to 2D screen coordinates
+* Stable drawing using noisy hand tracking data
+* Integrating CV + ML + OS automation in one loop
 
-The model was trained on the [EMNIST dataset](https://www.nist.gov/itl/products-and-services/emnist-dataset), which extends MNIST to handwritten letters and digits.
+---
+
+## 📈 Future Improvements
+
+* Multi-character word recognition
+* Gesture customization
+* Mobile/AR version
+* Edge deployment optimization
+
+---
+
+This project is open-source and available under the **MIT License**.
