@@ -55,52 +55,52 @@ User's Hand Moves in Front of Webcam
 │  FLASK SERVER (app.py)                                               │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │  FRAME LOOP (generate_frames)                   30+ FPS       │  │
+│  │  FRAME LOOP (generate_frames)                   30+ FPS        │  │
 │  │                                                                │  │
-│  │  cv2.VideoCapture ──► cv2.flip (mirror) ──► RGB convert       │  │
+│  │  cv2.VideoCapture ──► cv2.flip (mirror) ──► RGB convert        │  │
 │  │       │                                                        │  │
 │  │       ▼                                                        │  │
-│  │  MediaPipe Hands ──► 21 landmarks × 2 hands                   │  │
+│  │  MediaPipe Hands ──► 21 landmarks × 2 hands                    │  │
 │  │       │                                                        │  │
-│  │       ├─► Hand Classification (wrist x-position heuristic)    │  │
+│  │       ├─► Hand Classification (wrist x-position heuristic)     │  │
 │  │       │       │                                                │  │
-│  │       │       ├─► Right Hand (primary)                        │  │
-│  │       │       │     ├─► EMA + Moving Avg smoothing            │  │
-│  │       │       │     ├─► Pinch FSM (IDLE→DEBOUNCE→DRAW→END)   │  │
-│  │       │       │     ├─► Finger-up detection (5 booleans)      │  │
-│  │       │       │     └─► Mode dispatch:                        │  │
-│  │       │       │           WRITE  → Canvas draw + CNN predict  │  │
-│  │       │       │           CURSOR → PyAutoGUI.moveTo()         │  │
-│  │       │       │           THUMB  → Mode switch (3s hold)      │  │
+│  │       │       ├─► Right Hand (primary)                         │  │
+│  │       │       │     ├─► EMA + Moving Avg smoothing             │  │
+│  │       │       │     ├─► Pinch FSM (IDLE→DEBOUNCE→DRAW→END)     │  │
+│  │       │       │     ├─► Finger-up detection (5 booleans)       │  │
+│  │       │       │     └─► Mode dispatch:                         │  │
+│  │       │       │           WRITE  → Canvas draw + CNN predict   │  │
+│  │       │       │           CURSOR → PyAutoGUI.moveTo()          │  │
+│  │       │       │           THUMB  → Mode switch (3s hold)       │  │
 │  │       │       │                                                │  │
-│  │       │       └─► Left Hand (secondary, CURSOR mode only)    │  │
-│  │       │             ├─► Index only → Right click (0.5s hold) │  │
-│  │       │             └─► Index+Middle → Left click (0.5s hold)│  │
+│  │       │       └─► Left Hand (secondary, CURSOR mode only)      │  │
+│  │       │             ├─► Index only → Right click (0.5s hold)   │  │
+│  │       │             └─► Index+Middle → Left click (0.5s hold)  │  │
 │  │       │                                                        │  │
 │  │       ▼                                                        │  │
-│  │  Canvas overlay ──► MJPEG encode ──► /video_feed endpoint     │  │
+│  │  Canvas overlay ──► MJPEG encode ──► /video_feed endpoint      │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
 │  │  SPEECH PIPELINE                                               │  │
 │  │                                                                │  │
-│  │  Browser MediaRecorder ──► WAV blob ──► POST /transcribe      │  │
+│  │  Browser MediaRecorder ──► WAV blob ──► POST /transcribe       │  │
 │  │       │                                                        │  │
 │  │       ▼                                                        │  │
-│  │  ThreadPoolExecutor (up to 4 workers)                         │  │
+│  │  ThreadPoolExecutor (up to 4 workers)                          │  │
 │  │       │                                                        │  │
-│  │       ├─► try_language(en-US)  ──┐                            │  │
-│  │       ├─► try_language(hi-IN)  ──┤  Google Speech API         │  │
-│  │       ├─► try_language(gu-IN)  ──┤  (parallel requests)       │  │
-│  │       └─► try_language(en-IN)  ──┘                            │  │
+│  │       ├─► try_language(en-US)  ──┐                             │  │
+│  │       ├─► try_language(hi-IN)  ──┤  Google Speech API          │  │
+│  │       ├─► try_language(gu-IN)  ──┤  (parallel requests)        │  │
+│  │       └─► try_language(en-IN)  ──┘                             │  │
 │  │              │                                                 │  │
 │  │              ▼                                                 │  │
-│  │  Best result = max(transcript.length) ──► JSON response       │  │
+│  │  Best result = max(transcript.length) ──► JSON response        │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ROUTES:                                                             │
 │    GET  /            → index.html (full UI)                          │
-│    GET  /video_feed  → MJPEG stream (multipart/x-mixed-replace)     │
+│    GET  /video_feed  → MJPEG stream (multipart/x-mixed-replace)      │
 │    GET  /status      → { char, timestamp } (latest prediction)       │
 │    GET  /mode        → { mode: "WRITE" | "CURSOR" }                  │
 │    POST /transcribe  → { results[], best, best_lang }                │
