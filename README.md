@@ -295,10 +295,16 @@ These 5 booleans are combined to detect compound gestures (thumb-only, index-onl
 
 ### Model
 
-- **Architecture:** CNN trained on EMNIST dataset
-- **Input:** 28×28 grayscale image, single channel
-- **Output:** 47 classes (EMNIST Balanced) or 62 classes (EMNIST ByClass)
-- **Format:** `.keras` (TensorFlow/Keras SavedModel)
+| Spec | Details |
+|------|---------|
+| **Architecture** | Deep CNN (Convolutional Neural Network) trained on EMNIST dataset |
+| **Network Scale** | ~2,00,000 (2 lakh) trainable parameters across convolutional, pooling, and dense layers |
+| **Validation Accuracy** | **82–83%** on EMNIST character prediction |
+| **Input** | 28×28 grayscale image, single channel `(1, 28, 28, 1)` |
+| **Output** | 47 classes (EMNIST Balanced) or 62 classes (EMNIST ByClass) |
+| **Format** | `.keras` (TensorFlow/Keras SavedModel) |
+
+The model contains approximately **2 lakh neurons** across its layers — convolutional filters for feature extraction, max-pooling for spatial reduction, and fully connected dense layers for classification. At 82–83% accuracy on EMNIST validation data, it reliably distinguishes between digits (0–9), uppercase letters (A–Z), and a subset of lowercase letters — a 47-to-62-way classification problem on hand-drawn characters captured in real-time from noisy webcam input.
 
 The model auto-detects its class count at load time and selects the appropriate label map:
 
