@@ -287,7 +287,3 @@ This project **cannot be deployed on cloud platforms**.
 * Gesture customization
 * Mobile/AR version
 * Edge deployment optimization
-
----
-
-This project is open-source and available under the **MIT License**.
