@@ -115,7 +115,7 @@ The system is a monolithic Flask application that runs two pipelines inside a si
 
 | Category | Description |
 |----------|-------------|
-| **Air Writing** | Pinch-to-draw on a virtual canvas with Catmull-Rom spline interpolation for smooth strokes. CNN predicts characters from EMNIST (47 or 62 classes). |
+| **Air Writing** | Pinch-to-draw on a virtual canvas with Catmull-Rom spline interpolation for smooth strokes. CNN predicts characters from EMNIST (62 classes). |
 | **Virtual Mouse** | Right hand index finger controls OS cursor via PyAutoGUI. Coordinate mapping from webcam active area to full screen resolution with EMA smoothing. |
 | **Click Gestures** | Left hand triggers clicks in CURSOR mode. Index-only = right click. Index + middle = left click. 0.5-second hold with visual progress feedback. |
 | **Mode Switching** | Thumb-only gesture held for 3 seconds toggles between WRITE and CURSOR modes. Circular progress indicator shown during hold. |
